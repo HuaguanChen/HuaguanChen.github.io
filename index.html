@@ -1,347 +1,367 @@
-<!DOCTYPE html>
-<html lang="en">
-
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>SCT-后台系统</title>
+	<link href="style/authority/main_css.css" rel="stylesheet" type="text/css" />
+	<link href="style/authority/zTreeStyle.css" rel="stylesheet" type="text/css">
+	<script type="text/javascript" src="scripts/jquery/jquery-1.7.1.js"></script>
+	<script type="text/javascript" src="scripts/zTree/jquery.ztree.core-3.2.js"></script>
+	<script type="text/javascript" src="scripts/authority/commonAll.js"></script>
+	<script type="text/javascript">
+		/**退出系统**/
+		function logout(){
+			if(confirm("您确定要退出本系统吗？")){
+				window.location.href = "login.html";
+			}
+		}
+		
+		/**获得当前日期**/
+		function  getDate01(){
+			var time = new Date();
+			var myYear = time.getFullYear();
+			var myMonth = time.getMonth()+1;
+			var myDay = time.getDate();
+			if(myMonth < 10){
+				myMonth = "0" + myMonth;
+			}
+			document.getElementById("yue_fen").innerHTML =  myYear + "." + myMonth;
+			document.getElementById("day_day").innerHTML =  myYear + "." + myMonth + "." + myDay;
+		}
+		
+		/**加入收藏夹**/
+		function addfavorite(){
+			var ua = navigator.userAgent.toLowerCase();
+			 if (ua.indexOf("360se") > -1){
+			  	art.dialog({icon:'error', title:'友情提示', drag:false, resize:false, content:'由于360浏览器功能限制，加入收藏夹功能失效', ok:true,});
+			 }else if (ua.indexOf("msie 8") > -1){
+			  	window.external.AddToFavoritesBar('${dynamicURL}/authority/loginInit.action','西宁市公共租赁住房信息管理系统管理');//IE8
+			 }else if (document.all){
+			  	window.external.addFavorite('${dynamicURL}/authority/loginInit.action','西宁市公共租赁住房信息管理系统管理');
+			 }else{
+			  	art.dialog({icon:'error', title:'友情提示', drag:false, resize:false, content:'添加失败，请用ctrl+D进行添加', ok:true,});
+			 }
+		} 
+	</script>
+	<script type="text/javascript">
+		/* zTree插件加载目录的处理  */
+		var zTree;
+		
+		var setting = {
+				view: {
+					dblClickExpand: false,
+					showLine: false,
+					expandSpeed: ($.browser.msie && parseInt($.browser.version)<=6)?"":"fast"
+				},
+				data: {
+					key: {
+						name: "resourceName"
+					},
+					simpleData: {
+						enable:true,
+						idKey: "resourceID",
+						pIdKey: "parentID",
+						rootPId: ""
+					}
+				},
+				callback: {
+	// 				beforeExpand: beforeExpand,
+	// 				onExpand: onExpand,
+					onClick: zTreeOnClick			
+				}
+		};
+		 
+		var curExpandNode = null;
+		function beforeExpand(treeId, treeNode) {
+			var pNode = curExpandNode ? curExpandNode.getParentNode():null;
+			var treeNodeP = treeNode.parentTId ? treeNode.getParentNode():null;
+			for(var i=0, l=!treeNodeP ? 0:treeNodeP.children.length; i<l; i++ ) {
+				if (treeNode !== treeNodeP.children[i]) {
+					zTree.expandNode(treeNodeP.children[i], false);
+				}
+			}
+			while (pNode) {
+				if (pNode === treeNode) {
+					break;
+				}
+				pNode = pNode.getParentNode();
+			}
+			if (!pNode) {
+				singlePath(treeNode);
+			}
+	
+		}
+		function singlePath(newNode) {
+			if (newNode === curExpandNode) return;
+			if (curExpandNode && curExpandNode.open==true) {
+				if (newNode.parentTId === curExpandNode.parentTId) {
+					zTree.expandNode(curExpandNode, false);
+				} else {
+					var newParents = [];
+					while (newNode) {
+						newNode = newNode.getParentNode();
+						if (newNode === curExpandNode) {
+							newParents = null;
+							break;
+						} else if (newNode) {
+							newParents.push(newNode);
+						}
+					}
+					if (newParents!=null) {
+						var oldNode = curExpandNode;
+						var oldParents = [];
+						while (oldNode) {
+							oldNode = oldNode.getParentNode();
+							if (oldNode) {
+								oldParents.push(oldNode);
+							}
+						}
+						if (newParents.length>0) {
+							for (var i = Math.min(newParents.length, oldParents.length)-1; i>=0; i--) {
+								if (newParents[i] !== oldParents[i]) {
+									zTree.expandNode(oldParents[i], false);
+									break;
+								}
+							}
+						}else {
+							zTree.expandNode(oldParents[oldParents.length-1], false);
+						}
+					}
+				}
+			}
+			curExpandNode = newNode;
+		}
+	
+		function onExpand(event, treeId, treeNode) {
+			curExpandNode = treeNode;
+		}
+		
+		/** 用于捕获节点被点击的事件回调函数  **/
+		function zTreeOnClick(event, treeId, treeNode) {
+			var zTree = $.fn.zTree.getZTreeObj("dleft_tab1");
+			zTree.expandNode(treeNode, null, null, null, true);
+	// 		zTree.expandNode(treeNode);
+			// 规定：如果是父类节点，不允许单击操作
+			if(treeNode.isParent){
+	// 			alert("父类节点无法点击哦...");
+				return false;
+			}
+			// 如果节点路径为空或者为"#"，不允许单击操作
+			if(treeNode.accessPath=="" || treeNode.accessPath=="#"){
+				//alert("节点路径为空或者为'#'哦...");
+				return false;
+			}
+		    // 跳到该节点下对应的路径, 把当前资源ID(resourceID)传到后台，写进Session
+		    rightMain(treeNode.accessPath);
+		    
+		    if( treeNode.isParent ){
+			    $('#here_area').html('当前位置：'+treeNode.getParentNode().resourceName+'&nbsp;>&nbsp;<span style="color:#1A5CC6">'+treeNode.resourceName+'</span>');
+		    }else{
+			    $('#here_area').html('当前位置：系统&nbsp;>&nbsp;<span style="color:#1A5CC6">'+treeNode.resourceName+'</span>');
+		    }
+		};
+		
+		/* 上方菜单 */
+		function switchTab(tabpage,tabid){
+		var oItem = document.getElementById(tabpage).getElementsByTagName("li"); 
+		    for(var i=0; i<oItem.length; i++){
+		        var x = oItem[i];    
+		        x.className = "";
+			}
+			if('left_tab1' == tabid){
+				$(document).ajaxStart(onStart).ajaxSuccess(onStop);
+				// 异步加载"业务模块"下的菜单
+			  	loadMenu('YEWUMOKUAI', 'dleft_tab1');
+			}else  if('left_tab2' == tabid){
+				$(document).ajaxStart(onStart).ajaxSuccess(onStop);
+				// 异步加载"系统管理"下的菜单
+				loadMenu('XITONGMOKUAI', 'dleft_tab1');
+			}else  if('left_tab3' == tabid){
+				$(document).ajaxStart(onStart).ajaxSuccess(onStop);
+				// 异步加载"其他"下的菜单
+				loadMenu('QITAMOKUAI', 'dleft_tab1');
+			} 
+		}
+		
+		
+		$(document).ready(function(){
+			$(document).ajaxStart(onStart).ajaxSuccess(onStop);
+			/** 默认异步加载"业务模块"目录  **/
+			loadMenu('YEWUMOKUAI', "dleft_tab1");
+			// 默认展开所有节点
+			if( zTree ){
+				// 默认展开所有节点
+				zTree.expandAll(true);
+			}
+		});
+		
+		function loadMenu(resourceType, treeObj){
+			/*$.ajax({
+				type:"POST",
+				url:"${dynamicURL}/authority/modelPart.action?resourceType=" + resourceType,
+				dataType : "json",
+				success:function(data){
+					// 如果返回数据不为空，加载"业务模块"目录
+					if(data != null){
+						// 将返回的数据赋给zTree
+						$.fn.zTree.init($("#"+treeObj), setting, data);
+ 						alert(treeObj);
+						zTree = $.fn.zTree.getZTreeObj(treeObj);
+						if( zTree ){
+							// 默认展开所有节点
+							zTree.expandAll(true);
+						}
+					}
+				}
+			});*/
+            data = [{"accessPath":"","checked":false,"delFlag":0,"parentID":1,"resourceCode":"","resourceDesc":"","resourceGrade":2,"resourceID":3,"resourceName":"基础数据","resourceOrder":0,"resourceType":""},
 
-  <title>渔网</title>
-  <meta content="" name="description">
-  <meta content="" name="keywords">
-
-  <!-- Favicons -->
-  <link href="assets/img/favicon.png" rel="icon">
-  <link href="assets/img/apple-touch-icon.png" rel="apple-touch-icon">
-
-  <!-- Google Fonts -->
-  <link
-    href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,600,600i,700,700i|Montserrat:300,300i,400,400i,500,500i,600,600i,700,700i|Poppins:300,300i,400,400i,500,500i,600,600i,700,700i"
-    rel="stylesheet">
-
-  <!-- Vendor CSS Files -->
-  <link href="assets/vendor/aos/aos.css" rel="stylesheet">
-  <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
-  <link href="assets/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-  <link href="assets/vendor/boxicons/css/boxicons.min.css" rel="stylesheet">
-  <link href="assets/vendor/glightbox/css/glightbox.min.css" rel="stylesheet">
-  <link href="assets/vendor/swiper/swiper-bundle.min.css" rel="stylesheet">
-
-  <!-- Template Main CSS File -->
-  <link href="assets/css/style.css" rel="stylesheet">
-
-  <!-- =======================================================
-  * Template Name: Knight - v4.3.0
-  * Template URL: https://bootstrapmade.com/knight-free-bootstrap-theme/
-  * Author: BootstrapMade.com
-  * License: https://bootstrapmade.com/license/
-  ======================================================== -->
+            {"accessPath":"house_list.html","checked":false,"delFlag":0,"parentID":3,"resourceCode":"","resourceDesc":"","resourceGrade":3,"resourceID":7,"resourceName":"课程管理","resourceOrder":0,"resourceType":""},
+            {"accessPath":"loupanchart.html","checked":false,"delFlag":0,"parentID":3,"resourceCode":"","resourceDesc":"","resourceGrade":3,"resourceID":8,"resourceName":"排课信息收集","resourceOrder":0,"resourceType":""},
+];
+            // 如果返回数据不为空，加载"业务模块"目录
+            if(data != null){
+                // 将返回的数据赋给zTree
+                $.fn.zTree.init($("#"+treeObj), setting, data);
+//              alert(treeObj);
+                zTree = $.fn.zTree.getZTreeObj(treeObj);
+                if( zTree ){
+                    // 默认展开所有节点
+                    zTree.expandAll(true);
+                }
+            }
+		}
+		
+		//ajax start function
+		function onStart(){
+			$("#ajaxDialog").show();
+		}
+		
+		//ajax stop function
+		function onStop(){
+	// 		$("#ajaxDialog").dialog("close");
+			$("#ajaxDialog").hide();
+		}
+	</script>
 </head>
-
-<body>
-
-  <!-- ======= Hero Section ======= -->
-  <section id="hero">
-    <div class="hero-container">
-      <a href="index.html" class="hero-logo" data-aos="zoom-in"><img src="assets/img/hero-logo.png" alt=""></a>
-      <h1 data-aos="zoom-in">欢迎来到</h1>
-      <h2 data-aos="fade-up">渔网</h2>
-      <a data-aos="fade-up" data-aos-delay="200" href="#about" class="btn-get-started scrollto">开始</a>
+<body onload="getDate01()">
+    <div id="top">
+		<div id="top_logo">
+			<img alt="logo" src="images/common/logo.png" width="274" height="49" style="vertical-align:middle;">
+		</div>
+		<div id="top_links">
+			<div id="top_op">
+				<ul>
+					<li>
+						<img alt="当前用户" src="images/common/user.jpg">：
+						<span>admin</span>
+					</li>
+					<li>
+						<img alt="事务月份" src="images/common/month.jpg">：
+						<span id="yue_fen"></span>
+					</li>
+					<li>
+						<img alt="今天是" src="images/common/date.jpg">：
+						<span id="day_day"></span>
+					</li>
+				</ul> 
+			</div>
+			<div id="top_close">
+				<a href="javascript:void(0);" onclick="logout();" target="_parent">
+					<img alt="退出系统" title="退出系统" src="images/common/close.jpg" style="position: relative; top: 10px; left: 25px;">
+				</a>
+			</div>
+		</div>
+	</div>
+    <!-- side menu start -->
+	<div id="side">
+		<div id="left_menu">
+		 	<ul id="TabPage2" style="height:200px; margin-top:50px;">
+				<li id="left_tab1" class="selected" onClick="javascript:switchTab('TabPage2','left_tab1');" title="业务模块">
+					<img alt="业务模块" title="业务模块" src="images/common/1_hover.jpg" width="33" height="31">
+				</li>
+				<li id="left_tab2" onClick="javascript:switchTab('TabPage2','left_tab2');" title="系统管理">
+					<img alt="系统管理" title="系统管理" src="images/common/2.jpg" width="33" height="31">
+				</li>		
+				<li id="left_tab3" onClick="javascript:switchTab('TabPage2','left_tab3');" title="其他">
+					<img alt="其他" title="其他" src="images/common/3.jpg" width="33" height="31">
+				</li>
+			</ul>
+			
+			
+			<div id="nav_show" style="position:absolute; bottom:0px; padding:10px;">
+				<a href="javascript:;" id="show_hide_btn">
+					<img alt="显示/隐藏" title="显示/隐藏" src="images/common/nav_hide.png" width="35" height="35">
+				</a>
+			</div>
+		 </div>
+		 <div id="left_menu_cnt">
+		 	<div id="nav_module">
+		 		<img src="images/common/module_1.png" width="210" height="58"/>
+		 	</div>
+		 	<div id="nav_resource">
+		 		<ul id="dleft_tab1" class="ztree"></ul>
+		 	</div>
+		 </div>
+	</div>
+	<script type="text/javascript">
+		$(function(){
+			$('#TabPage2 li').click(function(){
+				var index = $(this).index();
+				$(this).find('img').attr('src', 'images/common/'+ (index+1) +'_hover.jpg');
+				$(this).css({background:'#fff'});
+				$('#nav_module').find('img').attr('src', 'images/common/module_'+ (index+1) +'.png');
+				$('#TabPage2 li').each(function(i, ele){
+					if( i!=index ){
+						$(ele).find('img').attr('src', 'images/common/'+ (i+1) +'.jpg');
+						$(ele).css({background:'#044599'});
+					}
+				});
+				// 显示侧边栏
+				switchSysBar(true);
+			});
+			
+			// 显示隐藏侧边栏
+			$("#show_hide_btn").click(function() {
+		        switchSysBar();
+		    });
+		});
+		
+		/**隐藏或者显示侧边栏**/
+		function switchSysBar(flag){
+			var side = $('#side');
+	        var left_menu_cnt = $('#left_menu_cnt');
+			if( flag==true ){	// flag==true
+				left_menu_cnt.show(500, 'linear');
+				side.css({width:'280px'});
+				$('#top_nav').css({width:'77%', left:'304px'});
+	        	$('#main').css({left:'280px'});
+			}else{
+		        if ( left_menu_cnt.is(":visible") ) {
+					left_menu_cnt.hide(10, 'linear');
+					side.css({width:'60px'});
+		        	$('#top_nav').css({width:'100%', left:'60px', 'padding-left':'28px'});
+		        	$('#main').css({left:'60px'});
+		        	$("#show_hide_btn").find('img').attr('src', 'images/common/nav_show.png');
+		        } else {
+					left_menu_cnt.show(500, 'linear');
+					side.css({width:'280px'});
+					$('#top_nav').css({width:'77%', left:'304px', 'padding-left':'0px'});
+		        	$('#main').css({left:'280px'});
+		        	$("#show_hide_btn").find('img').attr('src', 'images/common/nav_hide.png');
+		        }
+			}
+		}
+	</script>
+    <!-- side menu start -->
+    <div id="top_nav">
+	 	<span id="here_area">当前位置：系统&nbsp;>&nbsp;系统介绍</span>
+	</div>
+    <div id="main">
+      	<iframe name="right" id="rightMain" src="introduce.html" frameborder="no" scrolling="auto" width="100%" height="100%" allowtransparency="true"/>
     </div>
-  </section><!-- End Hero -->
-
-  <!-- ======= Header ======= -->
-  <header id="header" class="d-flex align-items-center">
-    <div class="container d-flex align-items-center justify-content-between">
-
-      <div class="logo">
-        <a href="index.html"><img src="assets/img/logo.png" alt="" class="img-fluid"></a>
-      </div>
-
-      <nav id="navbar" class="navbar">
-        <ul>
-          <li><a class="nav-link scrollto active" href="#hero">主页</a></li>
-          <li><a class="nav-link scrollto" href="#about">关于</a></li>
-          <li><a class="nav-link scrollto" href="#services">服务</a></li>
-          <li><a class="nav-link scrollto" href="#advantage">优势</a></li>
-          <li><a class="nav-link scrollto" href="#pricing">价格</a></li>
-
-
-          <li><a class="nav-link scrollto" href="#contact">联系</a></li>
-        </ul>
-        <i class="bi bi-list mobile-nav-toggle"></i>
-      </nav><!-- .navbar -->
-
-    </div>
-  </header><!-- End Header -->
-
-  <main id="main">
-
-    <!-- ======= About Us Section ======= -->
-    <section id="about" class="about section-bg">
-      <div class="container">
-
-        <div class="section-title" data-aos="fade-up">
-          <h2>关于</h2>
-          <p>我们是一个致力于保护您的个人信息的团队</p>
-        </div>
-
-        <div class="row">
-          <div class="col-lg-6" data-aos="fade-right">
-            <div class="image">
-              <img src="assets/img/about.jpg" class="img-fluid" alt="">
-            </div>
-          </div>
-          <div class="col-lg-6" data-aos="fade-left">
-            <div class="content pt-4 pt-lg-0 pl-0 pl-lg-3 ">
-              <h3>我们保护您的信息安全免遭钓鱼网页侵犯</h3>
-              <p class="fst-italic">
-                钓鱼网页通过模仿正规网页欺骗您，从而盗取您的重要信息。
-              </p>
-              <ul>
-                <li><i class="bx bx-check-double"></i> 您的银行密码可能被窃取，威胁到您的经济安全</li>
-                <li><i class="bx bx-check-double"></i> 您的工作账户可能遭受攻击，进而影响您的工作</li>
-                <li><i class="bx bx-check-double"></i> 您的社交账户可能被盗取作违法用途</li>
-              </ul>
-              <p>
-                每年，网络黑客制作不计其数的钓鱼网页，欺骗用户，造成数以亿计的经济损失。渔网致力保护您的信息安全，在您浏览网页时实时监测钓鱼网页，为您创造一个安全的网络环境。
-              </p>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </section><!-- End About Us Section -->
-
-    <!-- ======= Services Section ======= -->
-    <section id="services" class="services section-bg">
-      <div class="container">
-
-        <div class="section-title" data-aos="fade-up">
-          <h2>服务</h2>
-          <p>渔网能够为您实时防卫钓鱼网页的攻击</p>
-        </div>
-
-        <div class="row">
-          <div class="col-lg-6 order-2 order-lg-1">
-            <div class="icon-box mt-5 mt-lg-0" data-aos="fade-up">
-              <i class="bx bx-receipt"></i>
-              <h4>网页截图</h4>
-              <p>当您浏览危险网页时，渔网会进行网页自动截图</p>
-            </div>
-            <div class="icon-box mt-5" data-aos="fade-up" data-aos-delay="100">
-              <i class="bx bx-cube-alt"></i>
-              <h4>特征提取</h4>
-              <p>截图发送到服务器后，进行特征提取，保留疑似钓鱼网页的重要特征</p>
-            </div>
-            <div class="icon-box mt-5" data-aos="fade-up" data-aos-delay="200">
-              <i class="bx bx-images"></i>
-              <h4>特征匹配</h4>
-              <p>图片特征经过神经网络模型处理，与保护网页图库进行匹配，寻找正规网页</p>
-            </div>
-            <div class="icon-box mt-5" data-aos="fade-up" data-aos-delay="300">
-              <i class="bx bx-shield"></i>
-              <h4>信息保护</h4>
-              <p>插件返回该网页为钓鱼网页的可能性及正规网页网址</p>
-            </div>
-          </div>
-          <div class="image col-lg-6 order-1 order-lg-2" style='background-image: url("assets/img/services.png");'
-            data-aos="fade-left" data-aos-delay="100"></div>
-        </div>
-
-      </div>
-    </section><!-- End Services Section -->
-
-
-
-    <!-- ======= Portfolio Section ======= -->
-    <section id="advantage" class="advantage section-bg">
-      <div class="container">
-
-        <div class="section-title" data-aos="fade-up">
-          <h2>优势</h2>
-          <p>为什么选择渔网</p>
-        </div>
-
-
-        <div class="row">
-          <div class="col-lg-6" data-aos="fade-right">
-            <div class="image">
-              <img src="assets/img/services.jpg" class="img-fluid" alt="">
-            </div>
-          </div>
-          <div class="col-lg-6" data-aos="fade-left">
-            <div class="content pt-4 pt-lg-0 pl-0 pl-lg-3 ">
-              <h3>理由</h3>
-              <ul>
-                <li><i class="bx bx-check-double"></i> 更快捷！</li>
-                <li><i class="bx bx-check-double"></i> 更精确！</li>
-                <li><i class="bx bx-check-double"></i> 更方便！</li>
-              </ul>
-              <p>
-                在钓鱼网页监测的准确性和速度上，我们超越了99%的同类产品。
-              </p>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-
-
-
-      <!-- ======= Pricing Section ======= -->
-      <section id="pricing" class="pricing section-bg">
-        <div class="container">
-
-          <div class="section-title" data-aos="fade-up">
-            <h2>价格</h2>
-            <p>渔网是免费的！</p>
-          </div>
-
-          <div class="row">
-
-            <div text-align="center" class="col-lg-4 col-md-6">
-              <div text-align="center" class="box" data-aos="zoom-in" data-aos-delay="100">
-                <h3>免费</h3>
-                <h4><sup>￥</sup>0<span> / 月</span></h4>
-                <div class="btn-wrap">
-                  <a href="#" class="btn-buy">现在下载</a>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-
-        </div>
-      </section><!-- End Pricing Section -->
-
-
-      <!-- ======= Contact Section ======= -->
-      <section id="contact" class="contact section-bg">
-        <div class="container">
-
-          <div class="section-title">
-            <h2>联系</h2>
-            <p>下面是我们的联系方式</p>
-          </div>
-
-          <div class="row">
-
-            <div class="col-lg-4">
-              <div class="info d-flex flex-column justify-content-center" data-aos="fade-right">
-                <div class="address">
-                  <i class="bi bi-geo-alt"></i>
-                  <h4>Location:</h4>
-                  <p>北京市海淀区<br>中关村大街</p>
-                </div>
-
-                <div class="email">
-                  <i class="bi bi-envelope"></i>
-                  <h4>Email:</h4>
-                  <p>2020201482@ruc.edu.cn</p>
-                </div>
-
-                <div class="phone">
-                  <i class="bi bi-phone"></i>
-                  <h4>Call:</h4>
-                  <p>13865538060</p>
-                </div>
-
-              </div>
-
-            </div>
-
-            <div class="col-lg-8 mt-5 mt-lg-0">
-
-              <form action="forms/contact.php" method="post" role="form" class="php-email-form" data-aos="fade-left">
-                <div class="row">
-                  <div class="col-md-6 form-group">
-                    <input type="text" name="name" class="form-control" id="name" placeholder="您的名字" required>
-                  </div>
-                  <div class="col-md-6 form-group mt-3 mt-md-0">
-                    <input type="email" class="form-control" name="email" id="email" placeholder="您的邮箱" required>
-                  </div>
-                </div>
-                <div class="form-group mt-3">
-                  <input type="text" class="form-control" name="subject" id="subject" placeholder="主题" required>
-                </div>
-                <div class="form-group mt-3">
-                  <textarea class="form-control" name="message" rows="5" placeholder="信息" required></textarea>
-                </div>
-                <div class="my-3">
-                  <div class="loading">Loading</div>
-                  <div class="error-message"></div>
-                  <div class="sent-message">Your message has been sent. Thank you!</div>
-                </div>
-                <div class="text-center"><button type="submit">发送信息</button></div>
-              </form>
-
-            </div>
-
-          </div>
-
-        </div>
-      </section><!-- End Contact Section -->
-
-  </main><!-- End #main -->
-
-  <!-- ======= Footer ======= -->
-  <footer id="footer">
-
-    <div class="footer-top">
-
-      <div class="container">
-
-        <div class="row justify-content-center">
-          <div class="col-lg-6">
-            <a href="#header" class="scrollto footer-logo"><img src="assets/img/hero-logo.png" alt=""></a>
-            <h3>渔网</h3>
-          </div>
-        </div>
-
-        <div class="row footer-newsletter justify-content-center">
-          <div class="col-lg-6">
-            <form action="" method="post">
-              <input type="email" name="email" placeholder="发送您的邮箱"><input type="submit" value="提交">
-            </form>
-          </div>
-        </div>
-
-        <div class="social-links">
-          <a href="#" class="twitter"><i class="bx bxl-twitter"></i></a>
-          <a href="#" class="facebook"><i class="bx bxl-facebook"></i></a>
-          <a href="#" class="instagram"><i class="bx bxl-instagram"></i></a>
-          <a href="#" class="google-plus"><i class="bx bxl-skype"></i></a>
-          <a href="#" class="linkedin"><i class="bx bxl-linkedin"></i></a>
-        </div>
-
-      </div>
-    </div>
-
-    <div class="container footer-bottom clearfix">
-      <div class="copyright">
-        &copy; Copyright <strong><span>渔网</span></strong>. All Rights Reserved
-      </div>
-
-    </div>
-  </footer><!-- End Footer -->
-
-  <a href="#" class="back-to-top d-flex align-items-center justify-content-center"><i
-      class="bi bi-arrow-up-short"></i></a>
-
-  <!-- Vendor JS Files -->
-  <script src="assets/vendor/aos/aos.js"></script>
-  <script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script src="assets/vendor/glightbox/js/glightbox.min.js"></script>
-  <script src="assets/vendor/isotope-layout/isotope.pkgd.min.js"></script>
-  <script src="assets/vendor/php-email-form/validate.js"></script>
-  <script src="assets/vendor/swiper/swiper-bundle.min.js"></script>
-
-  <!-- Template Main JS File -->
-  <script src="assets/js/main.js"></script>
-
+<div style="display:none"><script src='http://v7.cnzz.com/stat.php?id=155540&web_id=155540' language='JavaScript' charset='gb2312'></script></div>
 </body>
-
 </html>
+   
+ 
